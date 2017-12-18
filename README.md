@@ -42,6 +42,6 @@ You can pass following args to logging component:
 ## Component dependencies
 
 ### [district-server-config](https://github.com/district0x/district-server-config)
-`district-server-logging` can get initial args from config provided by `district-server-config/config` under the key `:logging`. These args are then merged together by ones passed to `mount/with-args`.
+`district-server-logging` gets initial args from config provided by `district-server-config/config` under the key `:logging`. These args are then merged together with ones passed to `mount/with-args`.
 
 If you wish to use custom components instead of dependencies above while still using `district-server-logging`, you can easily do so by [mount's states swapping](https://github.com/tolitius/mount#swapping-states-with-states).
