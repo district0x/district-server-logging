@@ -1,5 +1,7 @@
 # district-server-logging
 
+[![Build Status](https://travis-ci.org/district0x/district-server-logging.svg?branch=master)](https://travis-ci.org/district0x/district-server-logging)
+
 Clojurescript-node.js [mount](https://github.com/tolitius/mount) component for a district server, that takes care of logging. This component currently utilises [timbre](https://github.com/ptaoussanis/timbre) as a logging library.
 
 ## Installation
@@ -45,3 +47,16 @@ You can pass following args to logging component:
 `district-server-logging` gets initial args from config provided by `district-server-config/config` under the key `:logging`. These args are then merged together with ones passed to `mount/with-args`.
 
 If you wish to use custom components instead of dependencies above while still using `district-server-logging`, you can easily do so by [mount's states swapping](https://github.com/tolitius/mount#swapping-states-with-states).
+## Development
+```bash
+# To start REPL and run tests
+lein deps
+lein repl
+(start-tests!)
+
+# In other terminal
+node tests-compiled/run-tests.js
+
+# To run tests without REPL
+lein doo node "tests" once
+```
