@@ -17,37 +17,36 @@
 
 (def chalk (nodejs/require "chalk"))
 
-
 (defn console-logline [logdata]
   (-> logdata
-    (select-keys [:instant :level :ns :message :meta :?file :?line])
-    (set/rename-keys {:instant :timestamp}))
+      (select-keys [:instant :level :ns :message :meta :?file :?line])
+      (set/rename-keys {:instant :timestamp}))
   (string/join " "
                [((.keyword chalk (case (:level logdata)
                                    :info "cyan"
                                    :warn "yellow"
                                    :error "red"
                                    "red"))
-                  (.bold chalk (string/upper-case (name (:level logdata)))))
+                 (.bold chalk (string/upper-case (name (:level logdata)))))
                 (.bold chalk (str (:message logdata)
                                   (if-let [md (:meta logdata)]
                                     (.reset chalk (str "\n" (with-out-str (pprint/pprint md)))))))
                 (.bold chalk "in")
-                (if (get-in logdata [:meta :raw-error])
+                (if-let [meta-ns (get-in logdata [:meta :ns])]
                   (str
-                    (.reset chalk (get-in logdata [:meta :ns]))
-                    "["
-                    (get-in logdata [:meta :file])
-                    ":"
-                    (get-in logdata [:meta :line])
-                    "]")
+                   (.reset chalk meta-ns)
+                   "["
+                   (get-in logdata [:meta :file])
+                   ":"
+                   (get-in logdata [:meta :line])
+                   "]")
                   (str
-                    (.reset chalk (:ns logdata))
-                    "["
-                    (:?file logdata)
-                    ":"
-                    (:?line logdata)
-                    "]"))
+                   (.reset chalk (:ns logdata))
+                   "["
+                   (:?file logdata)
+                   ":"
+                   (:?line logdata)
+                   "]"))                
                 (.bold chalk "at")
                 (.white chalk (:instant logdata))]))
 
