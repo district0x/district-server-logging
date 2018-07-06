@@ -5,7 +5,7 @@
 Clojurescript-node.js [mount](https://github.com/tolitius/mount) module for a district server, that takes care of logging. This module currently utilises [timbre](https://github.com/ptaoussanis/timbre) as a logging library.
 
 ## Installation
-Add `[district0x/district-server-logging "1.0.1"]` into your project.clj  
+Add `[district0x/district-server-logging "1.0.2"]` into your project.clj  
 Include `[district.server.logging]` in your CLJS file, where you use `mount/start`
 
 **Warning:** district0x modules are still in early stages, therefore API can change in a future.
