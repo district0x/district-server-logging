@@ -1,4 +1,4 @@
-(defproject district0x/district-server-logging "1.0.2-SNAPSHOT"
+(defproject district0x/district-server-logging "1.0.4-SNAPSHOT"
   :description "district0x server module for setting up logging"
   :url "https://github.com/district0x/district-server-logging"
   :license {:name "Eclipse Public License"
@@ -9,7 +9,8 @@
                  [com.taoensso/timbre "4.10.0"]
                  [com.taoensso/encore "2.92.0"]]
 
-  :npm {:dependencies [[chalk "2.3.0"]]
+  :npm {:dependencies [[chalk "2.3.0"]
+                       ["@sentry/node" "4.2.1"]]
         :devDependencies [[ws "2.0.1"]]}
 
   :figwheel {:server-port 4661}

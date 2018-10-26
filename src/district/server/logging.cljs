@@ -1,77 +1,64 @@
 (ns district.server.logging
   (:require
-    [cljs-node-io.core :as io :refer [spit]]
-    [cljs-node-io.file :refer [File]]
-    [cljs.nodejs :as nodejs]
-    [clojure.pprint :as pprint]
-    [clojure.set :as set]
-    [clojure.string :as string]
-    [district.server.config :refer [config]]
-    [mount.core :as mount :refer [defstate]]
-    [taoensso.timbre :as timbre]))
+   [cljs-node-io.core :as io :refer [spit]]
+   [cljs-node-io.file :refer [File]]
+   [cljs.nodejs :as nodejs]
+   [clojure.pprint :as pprint]
+   [clojure.set :as set]
+   [clojure.string :as string]
+   [district.server.config :refer [config]]
+   [mount.core :as mount :refer [defstate]]
+   [taoensso.timbre :as timbre]))
 
-(declare start)
-
-(defstate logging :start (start (merge (:logging @config)
-                                       (:logging (mount/args)))))
-
+(def Sentry (nodejs/require "@sentry/node"))
 (def chalk (nodejs/require "chalk"))
 
-(defn console-logline [logdata]
-  (-> logdata
-      (select-keys [:instant :level :ns :message :meta :?file :?line])
-      (set/rename-keys {:instant :timestamp}))
-  (string/join " "
-               [((.keyword chalk (case (:level logdata)
-                                   :info "cyan"
-                                   :warn "yellow"
-                                   :error "red"
-                                   "red"))
-                 (.bold chalk (string/upper-case (name (:level logdata)))))
-                (.bold chalk (str (:message logdata)
-                                  (if-let [md (:meta logdata)]
-                                    (.reset chalk (str "\n" (with-out-str (pprint/pprint md)))))))
-                (.bold chalk "in")
-                (if-let [meta-ns (get-in logdata [:meta :ns])]
-                  (str
-                   (.reset chalk meta-ns)
-                   "["
-                   (get-in logdata [:meta :file])
-                   ":"
-                   (get-in logdata [:meta :line])
-                   "]")
-                  (str
-                   (.reset chalk (:ns logdata))
-                   "["
-                   (:?file logdata)
-                   ":"
-                   (:?line logdata)
-                   "]"))                
-                (.bold chalk "at")
-                (.white chalk (:instant logdata))]))
-
-
-(defn logline [logdata]
-  (-> logdata
-    (select-keys [:instant :level :ns :message :meta :?file :?line])
-    (set/rename-keys {:instant :timestamp})))
-
+(def ^:private timbre->sentry-levels
+  {:trace  "debug"
+   :debug  "debug"
+   :info   "info"
+   :warn   "warning"
+   :error  "error"
+   :fatal  "fatal"
+   :report "info"})
 
 (defn- decode-vargs [vargs]
   (reduce (fn [m arg]
             (assoc m (cond
-                       (qualified-keyword? arg) :ns
+                       (qualified-keyword? arg) :log-ns
                        (string? arg) :message
-                       :else :meta) arg))
+                       (map? arg) :meta) arg))
           {}
           vargs))
 
+(defn- logline [data]
+  (-> data
+      (select-keys [:level :?ns-str :?file :?line :message :meta :instant])
+      (set/rename-keys {:instant :timestamp})))
 
-(defn wrap-decode-vargs [data]
-  "Middleware for vargs"
-  (merge data (decode-vargs (-> data
-                              :vargs))))
-
+(defn console-logline [data]
+  (let [{:keys [:level :log-ns :?ns-str :?file :?line :message :meta :timestamp]} (logline data)
+        {:keys [:ns :line :file]} meta]
+    (string/join " "
+                 [((.keyword chalk (case level
+                                     :info "cyan"
+                                     :warn "yellow"
+                                     :error "red"
+                                     "red"))
+                   (.bold chalk (string/upper-case (name level))))
+                  (.bold chalk (str message
+                                    (when meta
+                                      (.reset chalk (str "\n" (with-out-str (pprint/pprint meta)))))))
+                  (.bold chalk "in")
+                  (str
+                   (.reset chalk (or log-ns ns ?ns-str))
+                   "["
+                   (or file ?file)
+                   ":"
+                   (or line ?line)
+                   "]")
+                  (.bold chalk "at")
+                  (.white chalk timestamp)])))
 
 (defn console-appender []
   {:enabled? true
@@ -81,7 +68,6 @@
    :output-fn nil
    :fn (fn [data]
          (print (console-logline data)))})
-
 
 (defn file-appender
   [{:keys [path] :as options}]
@@ -95,12 +81,43 @@
      :fn (fn [data]
            (spit path (str (logline data) nl) :append (.exists f)))}))
 
+(defn sentry-appender [{:keys [:min-level]}]
+  {:enabled? true
+   :async? true
+   :min-level (or min-level :warn)
+   :rate-limit nil
+   :output-fn :inherit
+   :fn (fn [{:keys [:level :?ns-str :?line :message :meta :log-ns] :as data}]
+         (let [{:keys [:error :user :ns :line]} meta]
+           (when meta
+             (-> Sentry (.configureScope (fn [scope]
+                                           (doseq [[k v] meta]
+                                             (-> scope (.setExtra (name k) (clj->js v))))
+                                           (when user
+                                             (-> scope (.setUser (clj->js user))))))))
+           (if error
+             (-> Sentry (.captureException error))
+             (-> Sentry (.captureEvent (clj->js {:level (timbre->sentry-levels level)
+                                                 :message message
+                                                 :logger (str (or log-ns ns ?ns-str) ":" (or line ?line))}))))))})
 
-(defn start [{:keys [:level :console? :file-path]}]
+(defn wrap-decode-vargs [data]
+  "Middleware for vargs"
+  (merge data (decode-vargs (-> data
+                                :vargs))))
+
+(defn start [{:keys [:level :console? :file-path :sentry]}]
+  (when sentry
+    (.init Sentry (clj->js sentry)))
   (timbre/merge-config!
-    {:level (keyword level)
-     :middleware [wrap-decode-vargs]
-     :appenders {:console (when console?
-                            (console-appender))
-                 :file (when file-path
-                         (file-appender {:path file-path}))}}))
+   {:level (keyword level)
+    :middleware [wrap-decode-vargs]
+    :appenders {:console (when console?
+                           (console-appender))
+                :file (when file-path
+                        (file-appender {:path file-path}))
+                :sentry (when sentry
+                          (sentry-appender sentry))}}))
+
+(defstate logging :start (start (merge (:logging @config)
+                                       (:logging (mount/args)))))
