@@ -1,2 +1,8 @@
 language: clojure
 script: lein doo node "tests" once
+notifications:
+  slack:
+    on_success: always
+    on_failure: always
+    rooms:
+    - district0x:53vhalUfg0MitsQwzjP5PWdd#travis-ci
