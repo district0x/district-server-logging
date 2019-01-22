@@ -11,7 +11,7 @@
    [taoensso.timbre :as timbre]))
 
 (def Sentry (nodejs/require "@sentry/node"))
-(def chalk (nodejs/require "chalk"))
+(def Chalk (nodejs/require "chalk"))
 
 (def ^:private timbre->sentry-levels
   {:trace  "debug"
@@ -40,26 +40,26 @@
   (let [{:keys [:level :log-ns :?ns-str :?file :?line :message :meta :timestamp]} (logline data)
         {:keys [:ns :line :file]} meta]
     (string/join " "
-                 [((.keyword chalk (case level
+                 [((.keyword Chalk (case level
                                      :debug "cyan"
                                      :info "cyan"
                                      :warn "yellow"
                                      :error "red"
                                      "red"))
-                   (.bold chalk (string/upper-case (name level))))
-                  (.bold chalk (str message
+                   (.bold Chalk (string/upper-case (name level))))
+                  (.bold Chalk (str message
                                     (when meta
-                                      (.reset chalk (str "\n" (with-out-str (pprint/pprint meta)))))))
-                  (.bold chalk "in")
+                                      (.reset Chalk (str "\n" (with-out-str (pprint/pprint meta)))))))
+                  (.bold Chalk "in")
                   (str
-                   (.reset chalk (or log-ns ns ?ns-str))
+                   (.reset Chalk (or log-ns ns ?ns-str))
                    "["
                    (or file ?file)
                    ":"
                    (or line ?line)
                    "]")
-                  (.bold chalk "at")
-                  (.white chalk timestamp)])))
+                  (.bold Chalk "at")
+                  (.white Chalk timestamp)])))
 
 (defn console-appender []
   {:enabled? true
