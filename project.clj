@@ -4,6 +4,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[district0x/district-server-config "1.0.1"]
+                 [district0x/error-handling "1.0.3-SNAPSHOT"]
                  [mount "0.1.11"]
                  [org.clojure/clojurescript "1.9.946"]
                  [com.taoensso/timbre "4.10.0"]

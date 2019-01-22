@@ -96,10 +96,10 @@
                                              (-> scope (.setExtra (name k) (clj->js v))))
                                            (when user
                                              (-> scope (.setUser (clj->js user))))))))
-           (if error
+           (if (error? error)
              (-> Sentry (.captureException error))
              (-> Sentry (.captureEvent (clj->js {:level (timbre->sentry-levels level)
-                                                 :message message
+                                                 :message (or message error)
                                                  :logger (str (or log-ns ns ?ns-str) ":" (or line ?line))}))))))})
 
 (defn wrap-decode-vargs [data]
