@@ -7,6 +7,7 @@
    [clojure.set :as set]
    [clojure.string :as string]
    [district.server.config :refer [config]]
+   [district.shared.error-handling :refer [error?]]
    [mount.core :as mount :refer [defstate]]
    [taoensso.timbre :as timbre]))
 
@@ -96,7 +97,7 @@
                                              (-> scope (.setExtra (name k) (clj->js v))))
                                            (when user
                                              (-> scope (.setUser (clj->js user))))))))
-           (if (error? error)
+           (if (error? error) ;; check for js/Error to avoid syntheticException, see https://docs.sentry.io/platforms/node/#hints-for-events
              (-> Sentry (.captureException error))
              (-> Sentry (.captureEvent (clj->js {:level (timbre->sentry-levels level)
                                                  :message (or message error)
