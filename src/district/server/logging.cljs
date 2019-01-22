@@ -41,6 +41,7 @@
         {:keys [:ns :line :file]} meta]
     (string/join " "
                  [((.keyword chalk (case level
+                                     :debug "cyan"
                                      :info "cyan"
                                      :warn "yellow"
                                      :error "red"
