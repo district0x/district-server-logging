@@ -9,7 +9,9 @@
    [district.server.config :refer [config]]
    [district.shared.error-handling :refer [error?]]
    [mount.core :as mount :refer [defstate]]
-   [taoensso.timbre :as timbre]))
+   [taoensso.timbre :as timbre]
+   [cljs-time.core :as t]
+   [district.format :as format]))
 
 (def Sentry (nodejs/require "@sentry/node"))
 (def Chalk (nodejs/require "chalk"))
@@ -72,16 +74,27 @@
          (print (console-logline data)))})
 
 (defn file-appender
-  [{:keys [path] :as options}]
-  (let [f (File. path)
-        nl "\n"]
+  [{:keys [path roll-daily?] :as options}]
+  (let [today-str (fn [] (format/format-date (t/now) :basic-date))
+        new-state (fn [] {:file (File. path)
+                          :for-day (today-str)})
+        state (atom (new-state))
+        write-to-file (fn [file line]
+                        (spit file (str line "\n") :append (.exists file)))]
     {:enabled? true
      :async? false
      :min-level nil
      :rate-limit nil
      :output-fn nil
      :fn (fn [data]
-           (spit path (str (logline data) nl) :append (.exists f)))}))
+           (let [{:keys [file for-day]} @state
+                 today (today-str)]
+
+             (when (and roll-daily? (not= for-day today))
+               (.renameTo file (str path "-" for-day))
+               (reset! state (new-state)))
+
+             (write-to-file (:file @state) (logline data))))}))
 
 (defn sentry-appender [{:keys [:min-level]}]
   {:enabled? true
@@ -108,7 +121,7 @@
   (merge data (decode-vargs (-> data
                                 :vargs))))
 
-(defn start [{:keys [:level :console? :file-path :sentry]}]
+(defn start [{:keys [:level :console? :file :sentry]}]
   (when sentry
     (.init Sentry (clj->js sentry)))
   (timbre/merge-config!
@@ -116,8 +129,9 @@
     :middleware [wrap-decode-vargs]
     :appenders {:console (when console?
                            (console-appender))
-                :file (when file-path
-                        (file-appender {:path file-path}))
+                :file (when file
+                        (file-appender file))
+
                 :sentry (when sentry
                           (sentry-appender sentry))}}))
 
